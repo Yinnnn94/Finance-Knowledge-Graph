@@ -3,6 +3,7 @@ import jieba
 import spacy
 from rank_bm25 import BM25Okapi
 from transformers import pipeline
+from transformers import  AutoTokenizer, AutoModelForQuestionAnswering
 
 
 def clean_text(text):
@@ -22,17 +23,26 @@ for u in para:
     paragraph.append(u)
 
 def text_generator(query, source):
-    text2text = pipeline("text2text-generation", model="t5-small", device = 0)
-    response = text2text(f'用戶問{query}, 基於此回答{source}', max_length=50)
-    return response[0]['generated_text']
+    model_name = 'NchuNLP/Chinese-Question-Answering'
+    model = AutoModelForQuestionAnswering.from_pretrained(model_name)
+    tokenizer = AutoTokenizer.from_pretrained(model_name)
+    QA = pipeline("question-answering", model = model, tokenizer = tokenizer)    
+
+    result = QA(question = query, context = source)
+    # 輸出生成的答案
+    return result['answer']
+
 # Q&A
-bm25 = BM25Okapi(paragraph)
-query = ["CUBE卡綁定LINE Pay回饋多少？", "活動期限為何？", "哪些餐廳有8%回饋？"]
-# tokenized_query = ' '.join(jieba.cut(query, cut_all=False))
-for i in query:
-    doc_scores = bm25.get_scores(i)
-    topk = 1
-    topk_idx = bm25.get_top_n(i, paragraph, n=topk)
-    print('-' * 100)
-    print(f"Query: {i}")
-    print(text_generator(i, topk_idx))
+
+if __name__ == "__main__":
+
+    bm25 = BM25Okapi(paragraph)
+    query = ["CUBE卡綁定LINE Pay回饋多少？", "首刷好禮為何？", "刷星巴克最高回饋幾％？", "慶生月外送回饋多少？"]
+    for i in query:
+        doc_scores = bm25.get_scores(i)
+        topk = 1
+        topk_idx = bm25.get_top_n(i, paragraph, n=topk)
+        source_text = ' '.join(topk_idx)  # 將列表轉換為字串
+        print(f"""Query: {i}\nresponse: {text_generator(i, source_text)}\n""")
+        print('-' * 10)
+
